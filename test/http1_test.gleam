@@ -198,6 +198,24 @@ pub fn it_doesnt_mangle_query_test() {
   string_response_should_equal(resp, expected)
 }
 
+/// Browsers (WHATWG URL) and clients such as masto.js send `[` and `]` in the
+/// query without percent-encoding them, although RFC 3986 reserves them.
+pub fn it_accepts_raw_brackets_in_query_test() {
+  let req =
+    make_request("/", "hello, world!")
+    |> request.set_method(http.Get)
+  let req = request.Request(..req, query: Some("id[]=1&id[]=2"))
+
+  let resp = scaffold.with_server(8888, scaffold.default_handler, req)
+
+  let expected =
+    get_default_response()
+    |> response.set_header("content-length", "13")
+    |> response.set_body(bytes_tree.from_bit_array(<<"id[]=1&id[]=2":utf8>>))
+
+  string_response_should_equal(resp, expected)
+}
+
 pub fn it_supports_expect_continue_header_test() {
   let req =
     string.repeat("a", 1000)

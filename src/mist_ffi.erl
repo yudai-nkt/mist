@@ -97,7 +97,7 @@ ets_lookup_element(Table, Key, Position) ->
 get_path_and_query(String) ->
   case uri_string:parse(String) of
     {error, Value, Term} ->
-      {error, {Value, Term}};
+      split_origin_form(String, {Value, Term});
     UriMap ->
       Query =
         case maps:find(query, UriMap) of
@@ -107,6 +107,18 @@ get_path_and_query(String) ->
         end,
       {ok, {maps:get(path, UriMap), Query}}
   end.
+
+%% uri_string:parse/1 rejects characters RFC 3986 reserves, such as `[` and
+%% `]`, which browsers (following the WHATWG URL standard) and many clients
+%% send unencoded in the query. For an origin-form target, fall back to
+%% splitting at the first `?`, keeping both parts byte-for-byte.
+split_origin_form(<<"/", _/binary>> = String, _Error) ->
+  case binary:split(String, <<"?">>) of
+    [Path, Query] -> {ok, {Path, {ok, Query}}};
+    [Path] -> {ok, {Path, {error, nil}}}
+  end;
+split_origin_form(_String, Error) ->
+  {error, Error}.
 
 decode_atom(Value) when is_atom(Value) -> {ok, Value};
 decode_atom(_Value) -> {error, nil}.
